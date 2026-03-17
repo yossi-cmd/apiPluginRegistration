@@ -174,4 +174,5 @@ Authorization: Bearer <JWT_TOKEN>
    - `https://YOUR_DOMAIN/api/plugins`
    - `https://YOUR_DOMAIN/api/licenses/register`
    - `https://YOUR_DOMAIN/api/licenses/validate`
+   - `https://YOUR_DOMAIN/api/licenses/activate`
 
