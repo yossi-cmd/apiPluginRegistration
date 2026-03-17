@@ -17,31 +17,41 @@
 
 3. הגדרת סכמת בסיס נתונים (Neon/Postgres):
 
-   ```sql
-   CREATE TABLE projects (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     name TEXT NOT NULL,
-     api_key TEXT NOT NULL UNIQUE
-   );
+  ```sql
+  CREATE TABLE projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    api_key TEXT NOT NULL UNIQUE
+  );
 
-   CREATE TABLE plugins (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-     name TEXT NOT NULL
-   );
+  CREATE TABLE plugins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL
+  );
 
-   CREATE TABLE licenses (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-     plugin_id UUID NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
-     user_id TEXT NOT NULL,
-     license_key TEXT NOT NULL UNIQUE,
-     expires_at TIMESTAMPTZ NULL
-   );
+  CREATE TABLE licenses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    plugin_id UUID NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    license_key TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NULL,
+    allowed_activations INTEGER NULL
+  );
 
-   CREATE INDEX idx_licenses_lookup
-     ON licenses (project_id, plugin_id, user_id);
-   ```
+  CREATE TABLE activations (
+    id UUID PRIMARY KEY,
+    license_id UUID NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX idx_licenses_lookup
+    ON licenses (project_id, plugin_id, user_id);
+
+  CREATE INDEX idx_activations_license_id
+    ON activations (license_id);
+  ```
 
    לאחר מכן צור רשומת `project` ידנית עם `api_key` שתשמש אותך:
 
@@ -103,7 +113,8 @@ Authorization: Bearer <JWT_TOKEN>
   {
     "userId": "user@example.com",
     "pluginId": "PLUGIN_UUID",
-    "durationDays": 30 // אופציונלי, אם לא נשלח – הרשיון ללא תפוגה
+    "durationDays": 30,         // אופציונלי, אם לא נשלח – הרשיון ללא תפוגה
+    "allowedActivations": 5     // אופציונלי, אם לא נשלח – כמות הפעלות לא מוגבלת
   }
   ```
 
@@ -113,15 +124,35 @@ Authorization: Bearer <JWT_TOKEN>
   { "licenseKey": "UUID" }
   ```
 
-#### 4. בדיקת רשיון לפלאגין
+#### 4. הפעלת רשיון (יצירת הפעלה)
+
+- **POST** `/api/licenses/activate`
+- גוף:
+
+  ```json
+  {
+    "licenseKey": "LICENSE_KEY_UUID"
+  }
+  ```
+
+- התנהגות:
+  - אם `allowedActivations` ברשיון הוא `null` → אין הגבלה.
+  - אם יש ערך מספרי, נבדק האם כמות ההפעלות הקיימת לרשיון חורגת מהכמות המותרת.
+
+- תגובה:
+
+  ```json
+  { "activationId": "UUID" }
+  ```
+
+#### 5. בדיקת רשיון לפלאגין
 
 - **POST** `/api/licenses/validate`
 - גוף:
 
   ```json
   {
-    "userId": "user@example.com",
-    "pluginId": "PLUGIN_UUID"
+    "activationId": "ACTIVATION_UUID"
   }
   ```
 

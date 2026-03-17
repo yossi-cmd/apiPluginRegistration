@@ -7,6 +7,7 @@ interface RegisterLicenseBody {
   userId?: string;
   pluginId?: string;
   durationDays?: number | null;
+  allowedActivations?: number | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as RegisterLicenseBody;
-  const { userId, pluginId, durationDays } = body;
+  const { userId, pluginId, durationDays, allowedActivations } = body;
 
   if (!userId || !pluginId) {
     return NextResponse.json({ error: "userId and pluginId are required" }, { status: 400 });
@@ -52,11 +53,11 @@ export async function POST(req: NextRequest) {
 
   const { rows } = await query<{ license_key: string }>(
     `
-      INSERT INTO licenses (project_id, plugin_id, user_id, license_key, expires_at)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO licenses (project_id, plugin_id, user_id, license_key, expires_at, allowed_activations)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING license_key
     `,
-    [projectId, pluginId, userId, licenseKey, expiresAt],
+    [projectId, pluginId, userId, licenseKey, expiresAt, allowedActivations ?? null],
   );
 
   return NextResponse.json({ licenseKey: rows[0].license_key });

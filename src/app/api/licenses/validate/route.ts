@@ -2,29 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 interface ValidateLicenseBody {
-  userId?: string;
-  pluginId?: string;
+  activationId?: string;
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ValidateLicenseBody;
-  const { userId, pluginId } = body;
+  const { activationId } = body;
 
-  if (!userId || !pluginId) {
-    return NextResponse.json({ error: "userId and pluginId are required" }, { status: 400 });
+  if (!activationId) {
+    return NextResponse.json({ error: "activationId is required" }, { status: 400 });
   }
 
   const { rows } = await query<{ valid: boolean }>(
     `
       SELECT EXISTS (
         SELECT 1
-        FROM licenses
-        WHERE plugin_id = $1
-          AND user_id = $2
-          AND (expires_at IS NULL OR expires_at > NOW())
+        FROM activations a
+        JOIN licenses l ON a.license_id = l.id
+        WHERE a.id = $1
+          AND (l.expires_at IS NULL OR l.expires_at > NOW())
       ) AS valid
     `,
-    [pluginId, userId],
+    [activationId],
   );
 
   return NextResponse.json({ valid: rows[0]?.valid ?? false });
