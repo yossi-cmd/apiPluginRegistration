@@ -1,9 +1,9 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET as string;
-
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET is not set");
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not set");
+  return secret;
 }
 
 export interface TokenPayload {
@@ -11,11 +11,11 @@ export interface TokenPayload {
 }
 
 export function signToken(payload: TokenPayload, expiresInSeconds: number): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiresInSeconds });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: expiresInSeconds });
 }
 
 export function verifyToken(token: string): TokenPayload {
-  const decoded = jwt.verify(token, JWT_SECRET);
+  const decoded = jwt.verify(token, getJwtSecret());
   if (typeof decoded === "string") {
     throw new Error("Invalid token payload");
   }
