@@ -43,6 +43,8 @@
   CREATE TABLE activations (
     id UUID PRIMARY KEY,
     license_id UUID NOT NULL REFERENCES licenses(id) ON DELETE CASCADE,
+    site_url TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
@@ -51,6 +53,29 @@
 
   CREATE INDEX idx_activations_license_id
     ON activations (license_id);
+
+  CREATE INDEX idx_activations_license_site_active
+    ON activations (license_id, site_url, is_active);
+  ```
+
+  אם הטבלאות כבר קיימות אצלך, אפשר להריץ migration קצר:
+
+  ```sql
+  ALTER TABLE activations
+    ADD COLUMN IF NOT EXISTS site_url TEXT;
+
+  UPDATE activations
+  SET site_url = 'unknown'
+  WHERE site_url IS NULL;
+
+  ALTER TABLE activations
+    ALTER COLUMN site_url SET NOT NULL;
+
+  ALTER TABLE activations
+    ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+  CREATE INDEX IF NOT EXISTS idx_activations_license_site_active
+    ON activations (license_id, site_url, is_active);
   ```
 
    לאחר מכן צור רשומת `project` ידנית עם `api_key` שתשמש אותך:
@@ -133,14 +158,19 @@ Authorization: Bearer <JWT_TOKEN>
   ```json
   {
     "licenseKey": "LICENSE_KEY_UUID",
-    "pluginId": "PLUGIN_UUID"
+    "pluginId": "PLUGIN_UUID",
+    "siteUrl": "https://example.com"
   }
   ```
 
 - התנהגות:
   - הרשיון חייב להיות רשום ל־`pluginId` שצוין; אחרת תוחזר שגיאה 404.
+  - כל הפעלה נשמרת עם `siteUrl` שממנו נשלחה הבקשה.
+  - אם מתקבלת הפעלה חדשה לאותו אתר (`siteUrl`) עבור אותו רשיון/פלאגין:
+    - נוצרת הפעלה חדשה (`activationId` חדש)
+    - ההפעלה הפעילה הקודמת לאתר הזה הופכת ל־`is_active=false`
   - אם `allowedActivations` ברשיון הוא `null` → אין הגבלה.
-  - אם יש ערך מספרי, נבדק האם כמות ההפעלות הקיימת לרשיון חורגת מהכמות המותרת.
+  - אם יש ערך מספרי, נבדק האם כמות **ההפעלות הפעילות** חורגת מהכמות המותרת.
 
 - תגובה:
 
@@ -156,11 +186,16 @@ Authorization: Bearer <JWT_TOKEN>
   ```json
   {
     "activationId": "ACTIVATION_UUID",
-    "pluginId": "PLUGIN_UUID"
+    "pluginId": "PLUGIN_UUID",
+    "siteUrl": "https://example.com"
   }
   ```
 
-- ההפעלה חייבת להיות של רשיון לפלאגין זה; אם ה־`pluginId` לא תואם – `valid` יהיה `false`.
+- האימות יצליח רק אם:
+  - ההפעלה שייכת לפלאגין (`pluginId`) המבוקש
+  - `siteUrl` זהה למה שנשמר בהפעלה
+  - ההפעלה פעילה (`is_active=true`)
+  - והרשיון עצמו עדיין בתוקף
 
 - תגובה:
 

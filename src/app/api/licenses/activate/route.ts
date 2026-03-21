@@ -5,15 +5,16 @@ import { randomUUID } from "crypto";
 interface ActivateLicenseBody {
   licenseKey?: string;
   pluginId?: string;
+  siteUrl?: string;
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ActivateLicenseBody;
-  const { licenseKey, pluginId } = body;
+  const { licenseKey, pluginId, siteUrl } = body;
 
-  if (!licenseKey || !pluginId) {
+  if (!licenseKey || !pluginId || !siteUrl) {
     return NextResponse.json(
-      { error: "licenseKey and pluginId are required" },
+      { error: "licenseKey, pluginId and siteUrl are required" },
       { status: 400 },
     );
   }
@@ -41,12 +42,25 @@ export async function POST(req: NextRequest) {
 
   const license = licenseRows[0];
 
+  // For this license+site, keep only the newest activation active.
+  await query(
+    `
+      UPDATE activations
+      SET is_active = false
+      WHERE license_id = $1
+        AND site_url = $2
+        AND is_active = true
+    `,
+    [license.id, siteUrl],
+  );
+
   if (license.allowed_activations !== null) {
     const { rows: countRows } = await query<{ count: string }>(
       `
         SELECT COUNT(*)::text AS count
         FROM activations
         WHERE license_id = $1
+          AND is_active = true
       `,
       [license.id],
     );
@@ -65,10 +79,10 @@ export async function POST(req: NextRequest) {
 
   await query(
     `
-      INSERT INTO activations (id, license_id)
-      VALUES ($1, $2)
+      INSERT INTO activations (id, license_id, site_url, is_active)
+      VALUES ($1, $2, $3, true)
     `,
-    [activationId, license.id],
+    [activationId, license.id, siteUrl],
   );
 
   return NextResponse.json({ activationId });
