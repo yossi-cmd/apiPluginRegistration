@@ -19,15 +19,10 @@ function normalizeSiteUrl(rawUrl: string): string | null {
 function getRequestSiteUrl(req: NextRequest): string | null {
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
-  const host = req.headers.get("host");
 
   if (origin) return normalizeSiteUrl(origin);
   if (referer) return normalizeSiteUrl(referer);
-  if (forwardedHost) return normalizeSiteUrl(`${forwardedProto}://${forwardedHost}`);
-  if (host) return normalizeSiteUrl(`${forwardedProto}://${host}`);
-  return normalizeSiteUrl(req.nextUrl.origin);
+  return null;
 }
 
 export async function POST(req: NextRequest) {
