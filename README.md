@@ -158,13 +158,13 @@ Authorization: Bearer <JWT_TOKEN>
   ```json
   {
     "licenseKey": "LICENSE_KEY_UUID",
-    "pluginId": "PLUGIN_UUID",
-    "siteUrl": "https://example.com"
+    "pluginId": "PLUGIN_UUID"
   }
   ```
 
 - התנהגות:
   - הרשיון חייב להיות רשום ל־`pluginId` שצוין; אחרת תוחזר שגיאה 404.
+  - `siteUrl` נגזר אוטומטית מהבקשה (headers כמו `origin`/`referer`/`x-forwarded-host`) ולא נשלח מהלקוח בגוף.
   - כל הפעלה נשמרת עם `siteUrl` שממנו נשלחה הבקשה.
   - אם מתקבלת הפעלה חדשה לאותו אתר (`siteUrl`) עבור אותו רשיון/פלאגין:
     - נוצרת הפעלה חדשה (`activationId` חדש)
@@ -186,14 +186,13 @@ Authorization: Bearer <JWT_TOKEN>
   ```json
   {
     "activationId": "ACTIVATION_UUID",
-    "pluginId": "PLUGIN_UUID",
-    "siteUrl": "https://example.com"
+    "pluginId": "PLUGIN_UUID"
   }
   ```
 
 - האימות יצליח רק אם:
   - ההפעלה שייכת לפלאגין (`pluginId`) המבוקש
-  - `siteUrl` זהה למה שנשמר בהפעלה
+  - `siteUrl` שנגזר אוטומטית מהבקשה זהה למה שנשמר בהפעלה
   - ההפעלה פעילה (`is_active=true`)
   - והרשיון עצמו עדיין בתוקף
 

@@ -5,16 +5,46 @@ import { randomUUID } from "crypto";
 interface ActivateLicenseBody {
   licenseKey?: string;
   pluginId?: string;
-  siteUrl?: string;
+}
+
+function normalizeSiteUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function getRequestSiteUrl(req: NextRequest): string | null {
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host = req.headers.get("host");
+
+  if (origin) return normalizeSiteUrl(origin);
+  if (referer) return normalizeSiteUrl(referer);
+  if (forwardedHost) return normalizeSiteUrl(`${forwardedProto}://${forwardedHost}`);
+  if (host) return normalizeSiteUrl(`${forwardedProto}://${host}`);
+  return normalizeSiteUrl(req.nextUrl.origin);
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ActivateLicenseBody;
-  const { licenseKey, pluginId, siteUrl } = body;
+  const { licenseKey, pluginId } = body;
+  const siteUrl = getRequestSiteUrl(req);
 
-  if (!licenseKey || !pluginId || !siteUrl) {
+  if (!licenseKey || !pluginId) {
     return NextResponse.json(
-      { error: "licenseKey, pluginId and siteUrl are required" },
+      { error: "licenseKey and pluginId are required" },
+      { status: 400 },
+    );
+  }
+
+  if (!siteUrl) {
+    return NextResponse.json(
+      { error: "Could not determine request site URL from request headers" },
       { status: 400 },
     );
   }

@@ -4,16 +4,46 @@ import { query } from "@/lib/db";
 interface ValidateLicenseBody {
   activationId?: string;
   pluginId?: string;
-  siteUrl?: string;
+}
+
+function normalizeSiteUrl(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function getRequestSiteUrl(req: NextRequest): string | null {
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host = req.headers.get("host");
+
+  if (origin) return normalizeSiteUrl(origin);
+  if (referer) return normalizeSiteUrl(referer);
+  if (forwardedHost) return normalizeSiteUrl(`${forwardedProto}://${forwardedHost}`);
+  if (host) return normalizeSiteUrl(`${forwardedProto}://${host}`);
+  return normalizeSiteUrl(req.nextUrl.origin);
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ValidateLicenseBody;
-  const { activationId, pluginId, siteUrl } = body;
+  const { activationId, pluginId } = body;
+  const siteUrl = getRequestSiteUrl(req);
 
-  if (!activationId || !pluginId || !siteUrl) {
+  if (!activationId || !pluginId) {
     return NextResponse.json(
-      { error: "activationId, pluginId and siteUrl are required" },
+      { error: "activationId and pluginId are required" },
+      { status: 400 },
+    );
+  }
+
+  if (!siteUrl) {
+    return NextResponse.json(
+      { error: "Could not determine request site URL from request headers" },
       { status: 400 },
     );
   }
