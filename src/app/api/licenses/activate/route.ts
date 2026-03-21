@@ -4,17 +4,21 @@ import { randomUUID } from "crypto";
 
 interface ActivateLicenseBody {
   licenseKey?: string;
+  pluginId?: string;
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ActivateLicenseBody;
-  const { licenseKey } = body;
+  const { licenseKey, pluginId } = body;
 
-  if (!licenseKey) {
-    return NextResponse.json({ error: "licenseKey is required" }, { status: 400 });
+  if (!licenseKey || !pluginId) {
+    return NextResponse.json(
+      { error: "licenseKey and pluginId are required" },
+      { status: 400 },
+    );
   }
 
-  // Find license and count existing activations
+  // Find license for this plugin only (prevents using a key from another plugin)
   const { rows: licenseRows } = await query<{
     id: string;
     allowed_activations: number | null;
@@ -23,12 +27,16 @@ export async function POST(req: NextRequest) {
       SELECT id, allowed_activations
       FROM licenses
       WHERE license_key = $1
+        AND plugin_id = $2
     `,
-    [licenseKey],
+    [licenseKey, pluginId],
   );
 
   if (licenseRows.length === 0) {
-    return NextResponse.json({ error: "License not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "License not found for this plugin" },
+      { status: 404 },
+    );
   }
 
   const license = licenseRows[0];

@@ -68,7 +68,8 @@ npm run dev
 
 ### Endpoints
 
-כל הבקשות (מלבד `/api/token`) דורשות Header:
+- **ללא טוקן**: `POST /api/token`, `POST /api/licenses/activate`, `POST /api/licenses/validate`
+- **עם טוקן** (`Authorization: Bearer <JWT_TOKEN>`): `POST /api/plugins`, `POST /api/licenses/register`
 
 ```http
 Authorization: Bearer <JWT_TOKEN>
@@ -131,11 +132,13 @@ Authorization: Bearer <JWT_TOKEN>
 
   ```json
   {
-    "licenseKey": "LICENSE_KEY_UUID"
+    "licenseKey": "LICENSE_KEY_UUID",
+    "pluginId": "PLUGIN_UUID"
   }
   ```
 
 - התנהגות:
+  - הרשיון חייב להיות רשום ל־`pluginId` שצוין; אחרת תוחזר שגיאה 404.
   - אם `allowedActivations` ברשיון הוא `null` → אין הגבלה.
   - אם יש ערך מספרי, נבדק האם כמות ההפעלות הקיימת לרשיון חורגת מהכמות המותרת.
 
@@ -152,9 +155,12 @@ Authorization: Bearer <JWT_TOKEN>
 
   ```json
   {
-    "activationId": "ACTIVATION_UUID"
+    "activationId": "ACTIVATION_UUID",
+    "pluginId": "PLUGIN_UUID"
   }
   ```
+
+- ההפעלה חייבת להיות של רשיון לפלאגין זה; אם ה־`pluginId` לא תואם – `valid` יהיה `false`.
 
 - תגובה:
 
